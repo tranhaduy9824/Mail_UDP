@@ -49,6 +49,7 @@ public class Client extends JFrame {
             @Override
             public void windowClosing(java.awt.event.WindowEvent windowEvent) {
                 if (clientSocket != null && !clientSocket.isClosed()) {
+                    sendRequest("DISCONNECT");
                     clientSocket.close();
                 }
             }
@@ -232,7 +233,7 @@ public class Client extends JFrame {
             String toAccount = toField.getText();
             String content = emailContent.getText();
             if (content.isEmpty()) {
-                content = "No content"; // Hoặc một giá trị mặc định khác
+                content = "No content";
             }
             JFileChooser fileChooser = new JFileChooser();
             int returnValue = fileChooser.showOpenDialog(this);
@@ -310,7 +311,6 @@ public class Client extends JFrame {
                 System.arraycopy(requestData, 0, sendData, 0, requestData.length);
                 System.arraycopy(fileData, 0, sendData, requestData.length, fileData.length);
 
-                // Ghi nhận lại dữ liệu gửi
                 System.out.println("Sending data length: " + sendData.length);
                 System.out.println("Sending request: " + request);
 

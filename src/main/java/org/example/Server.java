@@ -138,23 +138,6 @@ public class Server extends JFrame {
         }
     }
 
-    private void sendFile(String fileData, DatagramSocket socket, InetAddress address, int port, String clientInfo) throws IOException {
-        String[] data = fileData.split(":", 2);
-        String accountName = data[0];
-        String fileName = data[1];
-
-        File file = new File(SERVER_FOLDER + accountName + "/" + fileName);
-        if (file.exists()) {
-            byte[] fileBytes = Files.readAllBytes(file.toPath());
-            DatagramPacket sendPacket = new DatagramPacket(fileBytes, fileBytes.length, address, port);
-            socket.send(sendPacket);
-            log(clientInfo + " - Sent file: " + fileName + " to " + accountName);
-        } else {
-            sendResponse("File not found!", socket, address, port);
-            log(clientInfo + " - File not found: " + fileName);
-        }
-    }
-
     private void sendFileList(String accountName, DatagramSocket socket, InetAddress address, int port, String clientInfo) throws IOException {
         File accountFolder = new File(SERVER_FOLDER + accountName);
         if (accountFolder.exists()) {
@@ -172,59 +155,6 @@ public class Server extends JFrame {
         byte[] sendData = response.getBytes();
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, address, port);
         socket.send(sendPacket);
-    }
-
-    private void handleEmailWithAttachment(String emailData, byte[] fileData, String clientInfo) throws IOException {
-        String[] data = emailData.split(":", 4);
-        String fromAccount = data[0];
-        String toAccount = data[1];
-        String emailContent = data[2];
-        String fileNameWithContent = data[3];
-
-        // Check if the underscore character exists in the fileNameWithContent
-        int firstUnderscoreIndex = fileNameWithContent.indexOf('_');
-        if (firstUnderscoreIndex == -1) {
-            throw new IllegalArgumentException("Invalid fileNameWithContent format: " + fileNameWithContent);
-        }
-
-        String fileName = fileNameWithContent.substring(0, firstUnderscoreIndex);
-        String fileContent = fileNameWithContent.substring(firstUnderscoreIndex + 1);
-
-        // Sanitize the file name
-        fileName = fileName.replaceAll("[^a-zA-Z0-9\\.\\-_]", "_");
-
-        // Truncate the file name if it exceeds 255 characters
-        if (fileName.length() > 255) {
-            fileName = fileName.substring(0, 255);
-        }
-
-        File accountFolder = new File(SERVER_FOLDER + toAccount);
-        if (!accountFolder.exists()) {
-            accountFolder.mkdirs(); // Ensure the folder exists
-        }
-
-        // Save email content
-        File emailFile = new File(accountFolder, "email_from_" + fromAccount + ".txt");
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(emailFile, true))) {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-            Date date = new Date();
-            writer.write(formatter.format(date) + " - " + emailContent + "\n");
-        }
-
-        // Save attachment file
-        File attachmentFile = new File(accountFolder, fileName);
-        try (FileOutputStream fos = new FileOutputStream(attachmentFile)) {
-            fos.write(fileData);
-        }
-
-        // Save the content of the file
-        if (!fileContent.isEmpty()) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(attachmentFile, true))) {
-                writer.write(fileContent);
-            }
-        }
-
-        log(clientInfo + " - Email with attachment sent from " + fromAccount + " to " + toAccount);
     }
 
     private void downloadFile(String fileData, DatagramSocket socket, InetAddress address, int port) throws IOException {
@@ -313,7 +243,6 @@ public class Server extends JFrame {
         String packetData = new String(receivePacket.getData(), 0, receivePacket.getLength()).trim();
         System.out.println("Extracting metadata from packet data: " + packetData); // Dòng debug
 
-        // Tách dữ liệu gói tin bằng dấu hai chấm, giới hạn số phần tách là 7
         String[] parts = packetData.split(":", 7);
 
         if (parts.length < 7) {
@@ -321,8 +250,7 @@ public class Server extends JFrame {
             throw new IllegalArgumentException("Invalid metadata format: " + Arrays.toString(parts));
         }
 
-        // Chỉ lấy 7 phần đầu tiên làm metadata
-        parts[6] = parts[6].replaceAll("[^0-9]", ""); // Loại bỏ các ký tự không phải số trong phần chunk index và total chunks
+        parts[6] = parts[6].replaceAll("[^0-9]", "");
 
         return parts;
     }
