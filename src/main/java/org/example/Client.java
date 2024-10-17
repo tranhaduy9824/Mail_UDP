@@ -3,6 +3,7 @@ package org.example;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ public class Client extends JFrame {
     private DatagramSocket clientSocket;
     private InetAddress serverAddress;
     private String accountName;
+    private File selectedFile;
 
     public Client() {
         try {
@@ -31,25 +33,29 @@ public class Client extends JFrame {
 
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(3, 1));
+        panel.setBackground(Color.LIGHT_GRAY);
 
         JButton registerButton = new JButton("Register");
+        registerButton.setBackground(Color.CYAN);
         registerButton.addActionListener(e -> new RegisterFrame(clientSocket, serverAddress));
 
         JButton loginButton = new JButton("Login");
+        loginButton.setBackground(Color.GREEN);
         loginButton.addActionListener(e -> new LoginFrame(clientSocket, serverAddress));
 
         panel.add(registerButton);
         panel.add(loginButton);
 
         add(panel);
+        setLocationRelativeTo(null);
         setVisible(true);
+        setState(JFrame.ICONIFIED);
 
         // Close socket when main window is closed
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent windowEvent) {
                 if (clientSocket != null && !clientSocket.isClosed()) {
-                    sendRequest("DISCONNECT");
                     clientSocket.close();
                 }
             }
@@ -108,6 +114,7 @@ public class Client extends JFrame {
             panel.add(accountField);
             panel.add(createAccountButton);
 
+            setLocationRelativeTo(null);
             add(panel);
             setVisible(true);
         }
@@ -148,6 +155,7 @@ public class Client extends JFrame {
             panel.add(accountField);
             panel.add(loginButton);
 
+            setLocationRelativeTo(null);
             add(panel);
             setVisible(true);
         }
@@ -162,6 +170,7 @@ public class Client extends JFrame {
                 DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
                 clientSocket.receive(receivePacket);
                 String fileList = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
                 JOptionPane.showMessageDialog(this, "Files in account: " + fileList);
                 new MainFrame(clientSocket, serverAddress, accountName, fileList);
                 dispose();
@@ -195,50 +204,93 @@ public class Client extends JFrame {
             this.accountName = accountName;
 
             setTitle("Mail Client - " + accountName);
-            setSize(400, 400);
+            setSize(500, 500);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLayout(new BorderLayout());
 
+            // Main panel for email input
             JPanel panel = new JPanel();
-            panel.setLayout(new GridLayout(6, 1));
+            panel.setLayout(new GridLayout(7, 1, 10, 10));
+            panel.setBackground(Color.WHITE);
+            panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-            toField = new JTextField(20);
-            emailContent = new JTextArea(5, 20);
-            JButton sendEmailButton = new JButton("Send Email");
-            sendEmailButton.addActionListener(e -> sendEmail());
-            JButton sendFileButton = new JButton("Send File");
-            sendFileButton.addActionListener(e -> sendEmailWithAttachment());
+            // Create and style labels and fields
+            JLabel toLabel = createLabel("To (Account):");
+            toField = createTextField();
 
-            panel.add(new JLabel("To (Account):"));
+            JLabel contentLabel = createLabel("Email Content:");
+            emailContent = createTextArea();
+
+            JButton sendEmailButton = createButton("Send Email", Color.BLUE, Color.WHITE, e -> sendEmail());
+            JButton attachFileButton = createButton("Attach File", Color.ORANGE, Color.BLACK, e -> selectFile());
+
+            // Adding components to panel
+            panel.add(toLabel);
             panel.add(toField);
-            panel.add(new JLabel("Email Content:"));
+            panel.add(contentLabel);
             panel.add(new JScrollPane(emailContent));
+            panel.add(attachFileButton);
             panel.add(sendEmailButton);
-            panel.add(sendFileButton);
 
             add(panel, BorderLayout.CENTER);
-
-            // Display file list
             updateFileList(fileList);
 
+            setLocationRelativeTo(null);
             setVisible(true);
+        }
+
+        private JLabel createLabel(String text) {
+            JLabel label = new JLabel(text);
+            label.setFont(new Font("Arial", Font.BOLD, 14));
+            label.setForeground(Color.DARK_GRAY);
+            return label;
+        }
+
+        private JTextField createTextField() {
+            JTextField textField = new JTextField(20);
+            textField.setFont(new Font("Arial", Font.PLAIN, 14));
+            textField.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+            return textField;
+        }
+
+        private JTextArea createTextArea() {
+            JTextArea textArea = new JTextArea(5, 20);
+            textArea.setFont(new Font("Arial", Font.PLAIN, 14));
+            textArea.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+            textArea.setLineWrap(true);
+            textArea.setWrapStyleWord(true);
+            return textArea;
+        }
+
+        private JButton createButton(String text, Color bgColor, Color fgColor, ActionListener action) {
+            JButton button = new JButton(text);
+            button.setBackground(bgColor);
+            button.setForeground(fgColor);
+            button.setFont(new Font("Arial", Font.BOLD, 14));
+            button.setFocusPainted(false);
+            button.addActionListener(action);
+            button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20)); // Padding
+            button.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Hand cursor
+            return button;
+        }
+
+        private void selectFile() {
+            JFileChooser fileChooser = new JFileChooser();
+            int returnValue = fileChooser.showOpenDialog(this);
+            if (returnValue == JFileChooser.APPROVE_OPTION) {
+                selectedFile = fileChooser.getSelectedFile();
+                JOptionPane.showMessageDialog(this, "Selected file: " + selectedFile.getName());
+            }
         }
 
         private void sendEmail() {
             String toAccount = toField.getText();
             String content = emailContent.getText();
-            sendRequest("SEND_EMAIL:" + accountName + ":" + toAccount + ":" + content);
-        }
-
-        private void sendEmailWithAttachment() {
-            String toAccount = toField.getText();
-            String content = emailContent.getText();
             if (content.isEmpty()) {
-                content = "No content";
+                content = "No content"; // Default value if content is empty
             }
-            JFileChooser fileChooser = new JFileChooser();
-            int returnValue = fileChooser.showOpenDialog(this);
-            if (returnValue == JFileChooser.APPROVE_OPTION) {
-                File selectedFile = fileChooser.getSelectedFile();
+
+            if (selectedFile != null) {
                 try {
                     byte[] fileData = Files.readAllBytes(selectedFile.toPath());
                     String fileName = selectedFile.getName();
@@ -262,17 +314,22 @@ public class Client extends JFrame {
                     e.printStackTrace();
                 }
             }
+            // Send only the message if no file is selected
+            String request = String.format("SEND_EMAIL:%s:%s:%s", accountName, toAccount, content);
+            sendRequest(request);
         }
 
         private void updateFileList(String fileList) {
             String[] files = fileList.split(",");
             JPanel filePanel = new JPanel();
             filePanel.setLayout(new GridLayout(files.length, 1));
+            filePanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20)); // Padding
+
             for (String file : files) {
-                JButton fileButton = new JButton(file);
-                fileButton.addActionListener(e -> downloadFile(file));
+                JButton fileButton = createButton(file, Color.LIGHT_GRAY, Color.BLACK, e -> downloadFile(file));
                 filePanel.add(fileButton);
             }
+
             add(filePanel, BorderLayout.SOUTH);
             revalidate();
             repaint();
@@ -310,9 +367,6 @@ public class Client extends JFrame {
                 byte[] sendData = new byte[requestData.length + fileData.length];
                 System.arraycopy(requestData, 0, sendData, 0, requestData.length);
                 System.arraycopy(fileData, 0, sendData, requestData.length, fileData.length);
-
-                System.out.println("Sending data length: " + sendData.length);
-                System.out.println("Sending request: " + request);
 
                 DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, serverAddress, SERVER_PORT);
                 clientSocket.send(sendPacket);

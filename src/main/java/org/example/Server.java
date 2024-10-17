@@ -42,7 +42,11 @@ public class Server extends JFrame {
     public static void main(String[] args) throws IOException {
         Server server = new Server();
         DatagramSocket serverSocket = new DatagramSocket(SERVER_PORT, InetAddress.getByName("0.0.0.0"));
-        server.log("Mail Server is running...");
+
+        InetAddress serverIp = InetAddress.getLocalHost();
+        String serverIpAddress = serverIp.getHostAddress();
+
+        server.log("Mail Server is running on IP: "+ serverIpAddress);
 
         byte[] receiveData = new byte[1024];
 
@@ -54,7 +58,7 @@ public class Server extends JFrame {
             int clientPort = receivePacket.getPort();
             String clientInfo = clientAddress.getHostAddress() + ":" + clientPort;
 
-            if (request.equals("CONNECT")) {
+           if (request.equals("CONNECT")) {
                 server.connectedClients.add(clientInfo);
                 server.log(clientInfo + " - Number of connected clients: " + server.connectedClients.size());
                 continue;
